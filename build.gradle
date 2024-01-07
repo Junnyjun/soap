@@ -10,7 +10,14 @@ plugins {
 group = 'git.io'
 version = '0.0.1-SNAPSHOT'
 
+configurations {
+    jaxb
+}
 
+bootJar {
+    archiveBaseName = 'gs-producing-web-service'
+    archiveVersion =  '0.1.0'
+}
 
 java {
     sourceCompatibility = '21'
@@ -22,11 +29,17 @@ repositories {
 
 
 dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-web-services'
-    implementation 'org.jetbrains.kotlin:kotlin-reflect'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    implementation 'org.jetbrains.kotlin:kotlin-reflect'
     implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.0'
     implementation 'org.glassfish.jaxb:jaxb-runtime:3.0.2'
+    jaxb("org.glassfish.jaxb:jaxb-xjc")
+    implementation 'wsdl4j:wsdl4j'
+
+    testImplementation('org.springframework.boot:spring-boot-starter-test')
 }
 
 tasks.withType(KotlinCompile) {
@@ -40,3 +53,31 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
+sourceSets {
+    main {
+        java {
+            srcDir 'src/main/java'
+            srcDir 'build/generated-sources/jaxb'
+        }
+    }
+}
+
+task genJaxb {
+    ext.sourcesDir = "${buildDir}/generated-sources/jaxb"
+    ext.schema = "src/main/resources/countries.xsd"
+
+    outputs.dir sourcesDir
+
+    doLast() {
+        project.ant {
+            taskdef name: "xjc", classname: "com.sun.tools.xjc.XJCTask",
+                    classpath: configurations.jaxb.asPath
+            mkdir(dir: sourcesDir)
+
+            xjc(destdir: sourcesDir, schema: schema) {
+                arg(value: "-wsdl")
+                produces(dir: sourcesDir, includes: "**/*.java")
+            }
+        }
+    }
+}
